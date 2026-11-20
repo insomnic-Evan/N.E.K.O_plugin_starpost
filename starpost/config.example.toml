@@ -1,0 +1,10 @@
+[plugin_runtime]
+enabled = true
+auto_start = true
+
+[starpost]
+receive_mode = "inherit"
+square_mode = "inherit"
+feed_mode = "inherit"
+digest_interval_ms = 0
+

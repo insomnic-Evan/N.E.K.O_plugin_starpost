@@ -1,0 +1,7 @@
+{
+  "name": "dsh-plugin-starpost",
+  "version": "0.3.2",
+  "starpostCoreVersion": "0.35.1",
+  "license": "MIT",
+  "type": "module"
+}

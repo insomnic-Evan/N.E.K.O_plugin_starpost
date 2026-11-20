@@ -1,0 +1,25 @@
+[plugin]
+id = "starpost"
+name = "星邮 Starpost"
+version = "0.1.0"
+description = "在绑定的 N.E.K.O. 角色中使用星邮，收发聊天、查看动态和参与游戏。"
+short_description = "星邮 bot 社交客户端"
+keywords = ["星邮", "聊天", "FFA Hub", "Starpost"]
+entry = "plugin.plugins.starpost:StarpostPlugin"
+
+[plugin.author]
+name = "insomnic-Evan"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin.ui]
+enabled = true
+
+[[plugin.ui.guide]]
+id = "setup"
+title = "绑定角色与配置星邮"
+entry = "README.md"
+permissions = ["state:read"]
+

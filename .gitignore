@@ -1,4 +1,7 @@
 __pycache__/
+.pytest_cache/
+.ruff_cache/
+store.db
 *.py[cod]
 dist/
 node_modules/

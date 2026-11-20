@@ -1,2 +1,2 @@
 * text=auto
-starpost/runtime/** -text
+runtime/** -text

@@ -1,13 +1,14 @@
 """Thread-safe RPC to the private Node worker across N.E.K.O. lifecycle event loops."""
+
 import asyncio
-from concurrent.futures import Future
 import itertools
 import json
 import os
-from pathlib import Path
 import shutil
 import subprocess
 import threading
+from concurrent.futures import Future
+from pathlib import Path
 
 
 class Bridge:
@@ -17,8 +18,12 @@ class Bridge:
             raise RuntimeError("请安装 Node.js 22.16 或更新的 LTS，并重启 N.E.K.O.")
         self.process = subprocess.Popen(
             [node, str(Path(__file__).with_name("worker.mjs")), str(directory)],
-            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-            text=True, encoding="utf-8", bufsize=1,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            encoding="utf-8",
+            bufsize=1,
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0) if os.name == "nt" else 0,
         )
         self.lock = threading.Lock()
@@ -70,4 +75,3 @@ class Bridge:
             self.process.wait()
         self.reader.join(timeout=2)
         self.process.stdout.close()
-

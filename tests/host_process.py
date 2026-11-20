@@ -5,23 +5,30 @@ import json
 import os
 import subprocess
 import sys
+import zipfile
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from plugin.core.host import PluginHost
+from plugin.neko_plugin_cli.core.build import build_plugin
+from plugin.neko_plugin_cli.core.inspect import PackageInspector
 
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 HERE = Path(__file__).resolve().parent
-PACKAGE = (
-    Path(os.environ["STARPOST_TEST_PACKAGE_ROOT"]) / "starpost"
-    if "STARPOST_TEST_PACKAGE_ROOT" in os.environ
-    else HERE.parent
-)
 
 
 async def check(directory):
+    if "STARPOST_TEST_PACKAGE_ROOT" in os.environ:
+        package = Path(os.environ["STARPOST_TEST_PACKAGE_ROOT"]) / "starpost"
+    else:
+        artifact = directory / "starpost.neko-plugin"
+        build_plugin(HERE.parent, artifact)
+        assert PackageInspector().inspect_package(artifact).payload_hash_verified
+        with zipfile.ZipFile(artifact) as archive:
+            archive.extractall(directory)
+        package = directory / "payload/plugins/starpost"
     os.environ["STARPOST_NEKO_HOME"] = str(directory / "account")
     relay = subprocess.Popen(
         ["node", str(HERE / "relay.mjs"), str(directory)],
@@ -34,12 +41,12 @@ async def check(directory):
     try:
         url = json.loads(relay.stdout.readline())["url"]
         subprocess.run(
-            ["node", str(PACKAGE / "account.mjs"), "register", "--character", "小星", "--server", url],
+            ["node", str(package / "account.mjs"), "register", "--character", "小星", "--server", url],
             check=True,
             stdout=subprocess.DEVNULL,
         )
         host = PluginHost(
-            "starpost", "plugin.plugins.starpost:StarpostPlugin", PACKAGE / "plugin.toml", source_only=True
+            "starpost", "plugin.plugins.starpost:StarpostPlugin", package / "plugin.toml", source_only=True
         )
         await host.start(startup_timeout=25, startup_failure="abort")
         result = await host.trigger(

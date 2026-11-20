@@ -6,6 +6,7 @@ import threading
 from pathlib import Path
 from typing import Literal
 
+from plugin.plugins.starpost.bridge import Bridge
 from plugin.sdk.plugin import (
     Err,
     NekoPluginBase,
@@ -18,8 +19,6 @@ from plugin.sdk.plugin import (
     plugin_entry,
     timer_interval,
 )
-
-from .bridge import Bridge
 
 
 @neko_plugin

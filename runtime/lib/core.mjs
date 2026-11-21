@@ -1780,8 +1780,6 @@ var StarpostWorld = class {
           if (this.cfg.receiveMode === "passive" && !this.backlogUntil[scope]) throw new Error("\u88AB\u52A8\u6295\u9012\u6A21\u5F0F\u4EC5\u53EF\u4E3B\u52A8\u67E5\u770B\u79EF\u538B\u4F1A\u8BDD");
           const limit = a.limit ?? 5;
           if (!Number.isSafeInteger(limit) || Number(limit) < 1 || Number(limit) > 50) throw new Error("limit \u987B\u4E3A 1\u201350 \u7684\u6574\u6570");
-          const check = await this.rpc("inbox.peek", { after: this.inboxSeen });
-          if (check.gameBusy) throw new Error("\u72FC\u4EBA\u6740\u5BF9\u5C40\u671F\u95F4\u4E0D\u80FD\u67E5\u6536\u666E\u901A\u804A\u5929");
           const page = await this.rpc("chat.history", { kind, target, after: this.inboxSeen[scope] ?? 0, limit, incomingOnly: true });
           for (const m of page.messages) if (m.audio) m.voiceText = await this.voiceText(m, { kind, target });
           const messages = page.messages.map((m) => ({
@@ -2031,11 +2029,6 @@ var StarpostWorld = class {
     if (!this.host || this.cfg.receiveMode === "passive" || !this.inboxCheckAt || this.clock() < this.inboxCheckAt || this.suspendedUntil > this.clock()) return;
     try {
       const result = await this.rpc("inbox.peek", { after: this.inboxSeen });
-      if (result.gameBusy) {
-        this.inboxCheckAt = this.clock() + 5 * 6e4;
-        this.saveCursor();
-        return;
-      }
       this.inboxCheckAt = 0;
       this.saveCursor();
       await this.host.pushEvent({
@@ -2100,7 +2093,6 @@ ${active ? "\u4E3B\u52A8\u67E5\u770B\u6A21\u5F0F\uFF1A\u8FD9\u91CC\u53EA\u63D0\u
   }
   async scanBacklog() {
     const result = await this.rpc("inbox.peek", { after: this.inboxSeen });
-    if (result.gameBusy) return;
     const who = this.activeIdentity().botId;
     const next = {};
     for (const item of result.conversations) {

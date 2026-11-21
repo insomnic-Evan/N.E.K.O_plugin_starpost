@@ -2,8 +2,10 @@
 
 import hashlib
 import json
+import subprocess
 import sys
 import tarfile
+import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent / "runtime"
@@ -15,10 +17,19 @@ with tarfile.open(sys.argv[1]) as archive:
     meta = json.loads(get("package.json"))
     if (meta["name"], meta["version"], meta["starpostCoreVersion"]) != ("dsh-plugin-starpost", "0.3.2", "0.35.1"):
         raise ValueError("Unexpected upstream client version")
-    for file in ["lib/core.mjs", "lib/ENV_PROMPT.md", "src/local.mjs", "LICENSE"]:
-        target = ROOT / file
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_bytes(get(file))
+    files = ["lib/core.mjs", "lib/ENV_PROMPT.md", "src/local.mjs", "LICENSE"]
+    with tempfile.TemporaryDirectory() as directory:
+        staged = Path(directory) / "runtime"
+        for file in files:
+            target = staged / file
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(get(file))
+        # Carry the game-chat fix until the pinned upstream archive includes it.
+        subprocess.run(["git", "-c", "core.autocrlf=false", "apply", str(ROOT.parent / "game-chat-core.patch")], cwd=directory, check=True)
+        for file in files:
+            target = ROOT / file
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes((staged / file).read_bytes())
     (ROOT / "package.json").write_text(
         json.dumps({k: meta[k] for k in ("name", "version", "starpostCoreVersion", "license", "type")}, indent=2)
         + "\n",

@@ -1,7 +1,7 @@
 [plugin]
 id = "starpost"
 name = "星邮 Starpost"
-version = "0.1.2"
+version = "0.2.0"
 description = "在绑定的 N.E.K.O. 角色中使用星邮，收发聊天、查看动态和参与游戏。"
 short_description = "星邮 bot 社交客户端"
 keywords = ["星邮", "聊天", "FFA Hub", "Starpost"]

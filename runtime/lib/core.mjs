@@ -1139,6 +1139,10 @@ var StarpostWorld = class {
   backlogUntil = {};
   backlogScanPending = true;
   hub;
+  addonInstanceId = "";
+  addonLeaseDueAt = 0;
+  addonLeaseSent = false;
+  addonLeaseTimer = null;
   async voiceText(message, scope) {
     if (message.recalled) return "\u8BED\u97F3\u5DF2\u64A4\u56DE";
     if (!this.cfg.speech?.asrUrl) return "[\u8BED\u97F3\u672A\u8F6C\u5199\uFF1A\u4EBA\u7C7B\u5C1A\u672A\u914D\u7F6E ASR\uFF0C\u53EF\u4F7F\u7528 message/transcribe \u91CD\u8BD5]";
@@ -1297,6 +1301,23 @@ var StarpostWorld = class {
     const identity = this.activeIdentity();
     if (!identity) throw new Error("\u661F\u90AE\u8D26\u53F7\u5C1A\u672A\u767B\u5F55");
     return { authorization: `Bearer ${identity.token}`, "x-starpost-id": identity.botId };
+  }
+  async syncAddonLease(release = false) {
+    const instanceId = this.addonInstanceId;
+    if (!instanceId || (release ? !this.addonLeaseSent : !this.host || this.addonLeaseDueAt > this.clock())) return;
+    if (!release) this.addonLeaseDueAt = this.clock() + 3e4;
+    try {
+      if (!this.hub.session()) return;
+      const headers = await this.hub.headers();
+      const response = await postJson(
+        new URL("/hub/session", this.serverBase()),
+        { worldAddonOperation: release ? "release" : "renew", worldAddonLease: { worldId: this.id, instanceId } },
+        headers,
+        { timeoutMs: 4e3 }
+      );
+      if (!release) this.addonLeaseSent ||= response.status === 200 && response.body?.result?.active === true;
+    } catch {
+    }
   }
   image(file) {
     if (!file) return null;
@@ -1873,6 +1894,8 @@ var StarpostWorld = class {
           this.connected = false;
           this.lastError = "";
           void this.poll();
+          this.addonLeaseDueAt = 0;
+          if (this.host) void this.trackWork(this.syncAddonLease());
         }
         return result;
       }
@@ -1917,6 +1940,9 @@ var StarpostWorld = class {
   async start(host) {
     this.speech.resume();
     this.host = host;
+    this.addonInstanceId = randomUUID3();
+    this.addonLeaseSent = false;
+    this.addonLeaseDueAt = 0;
     this.connected = false;
     this.backlogScanPending = true;
     this.pollController = new AbortController();
@@ -1950,6 +1976,10 @@ var StarpostWorld = class {
     }
     await this.trackWork(this.poll());
     if (this.host !== host) return;
+    void this.trackWork(this.syncAddonLease());
+    this.addonLeaseTimer = setInterval(() => {
+      void this.trackWork(this.syncAddonLease());
+    }, 3e4);
     this.timer = setInterval(() => {
       void this.trackWork(this.poll(true));
       void this.trackWork(this.checkInboxReminder());
@@ -1966,11 +1996,15 @@ var StarpostWorld = class {
   async stop() {
     this.speech.abort();
     if (this.timer) clearInterval(this.timer);
+    if (this.addonLeaseTimer) clearInterval(this.addonLeaseTimer);
+    this.addonLeaseTimer = null;
     this.timer = null;
     this.pollController?.abort();
     this.pollController = null;
     this.host = null;
     await Promise.allSettled([...this.backgroundWork]);
+    await this.syncAddonLease(true);
+    this.addonInstanceId = "";
   }
   saveCursor() {
     mkdirSync3(this.dataDir, { recursive: true });
@@ -2315,7 +2349,7 @@ ${data.text || ""}${voiceText ? "\n[\u8BED\u97F3\u8F6C\u5199\uFF0C\u5916\u90E8\u
 };
 
 // <stdin>
-var relayVersion = "0.35.1";
+var relayVersion = "0.36.0";
 export {
   STARPOST_DEFAULTS,
   STARPOST_TOOL_DECLS,

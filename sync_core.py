@@ -1,38 +1,20 @@
-"""Extract only the MIT client runtime from the pinned published DSH npm archive."""
-
+"""Refresh the bundled MIT runtime from the pinned DSH npm archive."""
 import hashlib
 import json
-import subprocess
 import sys
 import tarfile
-import tempfile
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent / "runtime"
+root = Path(__file__).parent / "runtime"
 with tarfile.open(sys.argv[1]) as archive:
-
-    def get(name):
+    def read(name):
         return archive.extractfile("package/" + name).read()
-
-    meta = json.loads(get("package.json"))
-    if (meta["name"], meta["version"], meta["starpostCoreVersion"]) != ("dsh-plugin-starpost", "0.3.2", "0.35.1"):
+    meta = json.loads(read("package.json"))
+    if (meta["name"], meta["version"], meta["starpostCoreVersion"]) != ("dsh-plugin-starpost", "0.5.0", "0.36.0"):
         raise ValueError("Unexpected upstream client version")
-    files = ["lib/core.mjs", "lib/ENV_PROMPT.md", "src/local.mjs", "LICENSE"]
-    with tempfile.TemporaryDirectory() as directory:
-        staged = Path(directory) / "runtime"
-        for file in files:
-            target = staged / file
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_bytes(get(file))
-        # Carry the game-chat fix until the pinned upstream archive includes it.
-        subprocess.run(["git", "-c", "core.autocrlf=false", "apply", str(ROOT.parent / "game-chat-core.patch")], cwd=directory, check=True)
-        for file in files:
-            target = ROOT / file
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_bytes((staged / file).read_bytes())
-    (ROOT / "package.json").write_text(
-        json.dumps({k: meta[k] for k in ("name", "version", "starpostCoreVersion", "license", "type")}, indent=2)
-        + "\n",
-        encoding="utf-8",
-    )
-print("Starpost core", meta["starpostCoreVersion"], hashlib.sha256((ROOT / "lib/core.mjs").read_bytes()).hexdigest())
+    for name in ["lib/core.mjs", "lib/ENV_PROMPT.md", "src/local.mjs", "web/fields.mjs", "LICENSE"]:
+        target = root / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(read(name))
+    (root / "package.json").write_text(json.dumps({k: meta[k] for k in ("name", "version", "starpostCoreVersion", "license", "type")}, indent=2) + chr(10), encoding="utf-8")
+print("Starpost core", meta["starpostCoreVersion"], hashlib.sha256((root/"lib/core.mjs").read_bytes()).hexdigest())

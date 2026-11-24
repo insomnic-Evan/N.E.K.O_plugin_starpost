@@ -17,6 +17,13 @@ supported = ">=0.1.0,<0.3.0"
 [plugin.ui]
 enabled = true
 
+[[plugin.ui.panel]]
+id = "account"
+title = "星邮账号"
+entry = "ui/account.tsx"
+context = "binding"
+permissions = ["state:read", "action:call"]
+
 [[plugin.ui.guide]]
 id = "setup"
 title = "绑定角色与配置星邮"

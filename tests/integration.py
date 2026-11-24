@@ -61,6 +61,16 @@ async def exercise(root, relay):
     try:
         result = await plugin.startup()
         assert plugin.list_llm_tools(), repr(result)
+        panel = await plugin.binding_context()
+        assert panel["botId"] == ident and "revealed" not in panel
+        await plugin.show_binding(ui_token="not-from-the-panel")
+        assert "revealed" not in await plugin.binding_context()
+        reply = await plugin.show_binding(ui_token=panel["ui_token"])
+        assert secret not in str(reply)
+        assert (await plugin.binding_context())["revealed"]["credential"] == secret
+        assert "revealed" not in await plugin.binding_context()
+        await plugin.show_binding(ui_token=panel["ui_token"])
+        assert "revealed" not in await plugin.binding_context()
         tool = plugin.list_llm_tools()[0]
         assert tool["role"] == "小星" and tool["name"] == "starpost_use"
         wrong = await plugin.agent_use("mobile", "send", '{"text":"wrong"}', _ctx={"lanlan_name": "另一位"})

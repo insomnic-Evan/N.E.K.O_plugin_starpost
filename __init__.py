@@ -2,7 +2,9 @@ import asyncio
 import base64
 import json
 import os
+import secrets
 import threading
+import time
 from pathlib import Path
 from typing import Literal
 
@@ -18,6 +20,7 @@ from plugin.sdk.plugin import (
     neko_plugin,
     plugin_entry,
     timer_interval,
+    ui,
 )
 
 
@@ -42,6 +45,10 @@ class StarpostPlugin(NekoPluginBase):
         super().__init__(ctx)
         self.bridge = None
         self.character = None
+        self.binding_lock = threading.Lock()
+        self.binding_nonce = secrets.token_urlsafe(32)
+        self.binding_result = None
+        self.bot_id = None
         self.delivery_lock = threading.Lock()
         self.prompt_pending = False
 
@@ -68,6 +75,7 @@ class StarpostPlugin(NekoPluginBase):
             self.bridge = Bridge(directory)
             info = await self.bridge.call("init", overrides)
             self.character = info["character"]
+            self.bot_id = info["botId"]
             self.prompt_pending = True
             tool = info["tool"]
             description = tool["description"] + " 回复「我的 bot」用 mobile/send；离线积压先用 inbox/peek，按需读正文。"
@@ -86,7 +94,11 @@ class StarpostPlugin(NekoPluginBase):
             return Err(SdkError(str(exc)))
 
     async def _stop(self):
-        bridge, self.bridge = self.bridge, None
+        with self.binding_lock:
+            self.binding_nonce = secrets.token_urlsafe(32)
+            self.binding_result = None
+            self.bot_id = None
+            bridge, self.bridge = self.bridge, None
         self.character = None
         try:
             self.unregister_llm_tool("starpost_use")
@@ -94,6 +106,47 @@ class StarpostPlugin(NekoPluginBase):
             if bridge:
                 await asyncio.to_thread(bridge.close)
         return Ok({})
+
+    @ui.context(id="binding")
+    async def binding_context(self):
+        with self.binding_lock:
+            result, self.binding_result = self.binding_result, None
+            state = {"botId": self.bot_id, "ui_token": self.binding_nonce}
+            if result and result[0] > time.monotonic():
+                state["revealed"] = result[1]
+            return state
+
+    @ui.action(label="显示并复制绑定凭据", refresh_context=False)
+    @plugin_entry(
+        id="show_binding",
+        name="显示绑定凭据",
+        description="限本机星邮账号面板使用。",
+        input_schema={"type": "object", "properties": {"ui_token": {"type": "string"}}, "required": ["ui_token"]},
+        llm_result_fields=["ready"],
+    )
+    async def show_binding(self, ui_token: str = "", **_):
+        with self.binding_lock:
+            bridge = self.bridge
+            if (
+                not bridge
+                or not isinstance(ui_token, str)
+                or not ui_token.isascii()
+                or not secrets.compare_digest(ui_token, self.binding_nonce)
+            ):
+                return Err(SdkError("请重新打开星邮账号面板"))
+            self.binding_nonce = secrets.token_urlsafe(32)
+            self.binding_result = None
+        try:
+            result = await bridge.call("bindingCredential")
+        except Exception as exc:
+            return Err(SdkError(str(exc)))
+        with self.binding_lock:
+            if self.bridge is not bridge:
+                return Err(SdkError("星邮账号已切换"))
+            # The task result is visible to the host. Deliver the credential only
+            # through a single read of the local human panel's private context.
+            self.binding_result = (time.monotonic() + 30, result)
+        return Ok({"ready": True})
 
     @lifecycle(id="startup")
     async def startup(self, **_):

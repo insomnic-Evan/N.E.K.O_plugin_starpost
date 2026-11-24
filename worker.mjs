@@ -61,6 +61,7 @@ async function request(op,args) {
     return {character,botId:status.botId,core:clientVersions.coreVersion,tool:STARPOST_TOOL_DECLS[0]};
   }
   if(!tool)throw Error('星邮未完成初始化');
+  if(op==='bindingCredential')return world.webUi().invoke('viewer','bindingCredential',[]);
   if(op==='start'){if(!started){started=true;await world.start(host);}return true;}
   if(op==='pull'){
     const row=db.prepare("SELECT id,body,mode FROM delivery WHERE mode!='pending' ORDER BY id LIMIT 1").get();

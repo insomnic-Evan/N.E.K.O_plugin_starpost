@@ -10,7 +10,7 @@ with tarfile.open(sys.argv[1]) as archive:
     def read(name):
         return archive.extractfile("package/" + name).read()
     meta = json.loads(read("package.json"))
-    if (meta["name"], meta["version"], meta["starpostCoreVersion"]) != ("dsh-plugin-starpost", "0.5.0", "0.36.0"):
+    if (meta["name"], meta["version"], meta["starpostCoreVersion"]) != ("dsh-plugin-starpost", "0.5.1", "0.36.1"):
         raise ValueError("Unexpected upstream client version")
     for name in ["lib/core.mjs", "lib/ENV_PROMPT.md", "src/local.mjs", "web/fields.mjs", "LICENSE"]:
         target = root / name
